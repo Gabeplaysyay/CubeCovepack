@@ -1,36 +1,44 @@
-name: Optimize resource pack
+name: Optimize and Publish Resource Pack
+
 on: [push, workflow_dispatch]
+
 jobs:
-  packsquash:
-    permissions: write-all
-    name: Optimize resource pack
+  build:
+    name: Optimize & Deploy Resource Pack
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # A non-shallow repository clone is required
+          fetch-depth: 0 # Full clone for versioning or hashing
+
       - name: Run PackSquash
         uses: ComunidadAylas/PackSquash-action@v4
         with:
           packsquash_version: latest
           options: |
             pack_directory = 'pack'
+
       - name: Download optimized pack
         uses: actions/download-artifact@v4
         with:
           name: Optimized pack
 
-      - name: Generate Hash
+      - name: Generate SHA-1 Hash
         run: sha1sum pack.zip | head -c 40 > hash.txt
-      
-      - name: Copy Pack For Plugin
-        run: cp pack.zip $(cat hash.txt).zip
 
-      - name: Tag and create release
-        uses: softprops/action-gh-release@v2
+      - name: Rename zip to match hash
+        run: cp pack.zip "$(cat hash.txt).zip"
+
+      - name: Also save as latest.zip
+        run: cp pack.zip latest.zip
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          tag_name: latest
-          files: |
-            *.zip
-            hash.txt
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
